@@ -51,6 +51,7 @@ Make sure you have the following installed:
     ```bash
     python app.py
     ```
+Visit http://127.0.0.1:5000 in your browser to access the app.
 
 ### Usage 🖥️
 
