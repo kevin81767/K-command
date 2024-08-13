@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Command Runner</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --background-color: #121212;
+            --text-color: #f8f9fa;
+            --card-bg: #1e1e1e;
+            --input-bg: #2a2a2a;
+        }
+
+        [data-bs-theme="light"] {
+            --primary-color: #0056b3;
+            --secondary-color: #545b62;
+            --success-color: #218838;
+            --danger-color: #c82333;
+            --background-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --input-bg: #e9ecef;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--secondary-color);
+        }
+
+        .form-control, .btn {
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            border-color: var(--secondary-color);
+        }
+
+        .form-control:focus {
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            opacity: 0.9;
+        }
+
+        .output-scroll {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: var(--input-bg);
+            border: 1px solid var(--secondary-color);
+            padding: 10px;
+            font-size: 0.9em;
+        }
+
+        .command-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid var(--secondary-color);
+            background-color: var(--card-bg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="mb-0">Gui Commander</h1>
+            <div class="alert alert-danger" id="error-alert" style="display: none;"></div>
+            <button id="theme-toggle" class="btn btn-outline-primary">Toggle Theme</button>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h3 class="card-title">Run Command</h3>
+                        <form id="command-form">
+                            <div class="input-group mb-3">
+                                <input type="text" id="command-input" class="form-control" placeholder="Enter command">
+                                <button type="submit" class="btn btn-primary">Run</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title">Running Commands</h3>
+                        <div id="running-commands"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="card-title">Command Output</h3>
+                        <div id="command-output"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const commandForm = document.getElementById('command-form');
+        const commandInput = document.getElementById('command-input');
+        const runningCommands = document.getElementById('running-commands');
+        const commandOutput = document.getElementById('command-output');
+        const themeToggle = document.getElementById('theme-toggle');
+        const errorAlert = document.getElementById('error-alert');
+
+        themeToggle.addEventListener('click', () => {
+            const html = document.documentElement;
+            if (html.getAttribute('data-bs-theme') === 'dark') {
+                html.setAttribute('data-bs-theme', 'light');
+                themeToggle.textContent = 'Dark Mode';
+            } else {
+                html.setAttribute('data-bs-theme', 'dark');
+                themeToggle.textContent = 'Light Mode';
+            }
+        });
+
+        commandForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const command = commandInput.value;
+            if (command) {
+                const commandId = Date.now().toString();
+                socket.emit('run_command', {id: commandId, command: command});
+                commandInput.value = '';
+            }
+        });
+
+        socket.on('command_started', (data) => {
+            const commandElement = document.createElement('div');
+            commandElement.id = `command-${data.id}`;
+            commandElement.className = 'command-item';
+            commandElement.innerHTML = `
+                <p><strong>Running:</strong> ${data.command} </p>
+                <strong>Tool: <span class="badge text-bg-primary">${data.tool}</span></strong>
+                <button class="btn btn-danger btn-sm stop-btn" data-id="${data.id}">Stop</button>
+            `;
+            runningCommands.appendChild(commandElement);
+
+            const outputElement = document.createElement('div');
+            outputElement.id = `output-${data.id}`;
+            outputElement.className = 'mb-4';
+            outputElement.innerHTML = `
+                <h4>Output for <span class="badge text-bg-primary">${data.tool}</span>: </h4>
+                <p>${data.command}</p>
+                <div class="output-scroll mb-2" id="scroll-${data.id}"></div>
+                <button class="btn btn-danger btn-sm stop-btn" data-id="${data.id}">Stop</button>
+                <button class="btn btn-danger btn-sm remove-btn" data-id="${data.id}" style="display:none;">Remove</button>
+            `;
+            commandOutput.appendChild(outputElement);
+        });
+
+        socket.on('command_output', (data) => {
+            const scrollElement = document.getElementById(`scroll-${data.id}`);
+            if (scrollElement) {
+                const newLine = document.createElement('div');
+                newLine.textContent = data.output;
+                scrollElement.appendChild(newLine);
+                scrollElement.scrollTop = scrollElement.scrollHeight;
+            }
+        });
+
+        socket.on('command_completed', (data) => {
+            updateCommandStatus(data.id, data.status === 'completed' ? 'Completed' : 'Error');
+        });
+
+        socket.on('command_error', (data) => {
+            errorAlert.textContent = data.error;
+            errorAlert.style.display = 'block';
+            setTimeout(() => {
+                errorAlert.style.display = 'none';
+            }, 5000);
+        });
+
+        socket.on('command_stopped', (data) => {
+            updateCommandStatus(data.id, 'Stopped');
+        });
+
+        function updateCommandStatus(commandId, status) {
+            const commandElement = document.getElementById(`command-${commandId}`);
+            const outputElement = document.getElementById(`output-${commandId}`);
+            if (commandElement && outputElement) {
+                commandElement.innerHTML += `<p><strong>Status:</strong> <span class="text-primary">${status}</span></p>`;
+                commandElement.querySelector('.stop-btn').style.display = 'none';
+                commandElement.querySelector('.remove-btn') || commandElement.appendChild(createRemoveButton(commandId));
+
+                outputElement.querySelector('.stop-btn').style.display = 'none';
+                outputElement.querySelector('.remove-btn').style.display = 'inline-block';
+            }
+        }
+
+        function createRemoveButton(commandId) {
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-danger btn-sm remove-btn';
+            removeBtn.textContent = 'Remove';
+            removeBtn.dataset.id = commandId;
+            return removeBtn;
+        }
+
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('stop-btn')) {
+                const commandId = e.target.dataset.id;
+                socket.emit('stop_command', {id: commandId});
+            } else if (e.target.classList.contains('remove-btn')) {
+                const commandId = e.target.dataset.id;
+                document.getElementById(`command-${commandId}`)?.remove();
+                document.getElementById(`output-${commandId}`)?.remove();
+            }
+        });
+    </script>
+</body>
+</html>

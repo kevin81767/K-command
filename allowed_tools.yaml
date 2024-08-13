@@ -1,0 +1,6 @@
+allowed_tools:
+  - nmap
+  - ffuf
+  - feroxbuster
+  - ping
+  - waybackurls
