@@ -1,4 +1,4 @@
-# k-command 🛠️
+# K-command 🛠️
 
 Your go-to Flask web app for running security tools effortlessly! This app empowers security testers to execute various tools directly from a sleek and intuitive web interface. Get ready to streamline your workflow! 🚀
 
