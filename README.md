@@ -27,7 +27,7 @@ Make sure you have the following installed:
 
    ```bash
    git clone https://github.com/kevin81767/K-command.git
-   cd k-command
+   cd K-command
    ```
 
 2. **Install dependencies:**
